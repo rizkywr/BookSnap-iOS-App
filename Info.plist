@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.example.BookApp</string>
+    <key>CFBundleName</key>
+    <string>BookApp</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Camera access is required to take a photo for your book cover.</string>
+</dict>
+</plist>
