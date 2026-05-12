@@ -10,10 +10,16 @@ struct InsightLibraryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
+    let onBack: (() -> Void)?
+
     @Query private var books: [BookRecord]
 
     @State private var searchText = ""
     @State private var selectedTag: String?
+
+    init(onBack: (() -> Void)? = nil) {
+        self.onBack = onBack
+    }
 
     private var allTags: [String] {
         let tags = books.flatMap { book in
@@ -101,7 +107,7 @@ struct InsightLibraryView: View {
     }
 
     private var backButton: some View {
-        Button(action: { dismiss() }) {
+        Button(action: handleBack) {
             HStack(spacing: 4) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 14, weight: .medium))
@@ -116,6 +122,14 @@ struct InsightLibraryView: View {
             .clipShape(Capsule(style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    private func handleBack() {
+        if let onBack {
+            onBack()
+        } else {
+            dismiss()
+        }
     }
 
     private var libraryCard: some View {

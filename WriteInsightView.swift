@@ -10,11 +10,17 @@ struct WriteInsightView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
+    let onReturnHome: (() -> Void)?
+
     @State private var keyInsight = ""
     @State private var whyItMatters = ""
     @State private var tagOrComment = ""
     @State private var page = ""
     @State private var savedDraft: InsightDraft?
+
+    init(onReturnHome: (() -> Void)? = nil) {
+        self.onReturnHome = onReturnHome
+    }
 
     var body: some View {
         ZStack {
@@ -90,7 +96,7 @@ struct WriteInsightView: View {
         }
         .navigationBarBackButtonHidden(true)
         .navigationDestination(item: $savedDraft) { draft in
-            InsightSavedView(draft: draft)
+            InsightSavedView(draft: draft, onReturnHome: onReturnHome)
         }
     }
 
@@ -142,7 +148,7 @@ struct WriteInsightView: View {
 
                     if text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text(subtitle)
-                            .font(.system(size: 16,))
+                            .font(.system(size: 16))
                             .foregroundStyle(Color.black.opacity(0.25))
                             .allowsHitTesting(false)
                             .padding(.top, 8)
@@ -193,4 +199,3 @@ struct WriteInsightView: View {
         return Array(NSOrderedSet(array: tags)) as? [String] ?? tags
     }
 }
-

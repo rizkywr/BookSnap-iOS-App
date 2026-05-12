@@ -11,6 +11,7 @@ struct TaggedInsightsView: View {
     let initialTag: String
 
     @State private var searchText = ""
+    @State private var selectedInsight: InsightDraft?
 
     private var normalizedSearch: String {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -49,20 +50,18 @@ struct TaggedInsightsView: View {
         ScrollView(showsIndicators: false) {
             LazyVStack(spacing: 14) {
                 ForEach(matchingEntries) { insight in
-                    NavigationLink {
-                        EditInsightNoteView(
-                            insight: insight,
-                            bookTitle: books.first(where: { $0.insights.contains(where: { $0.id == insight.id }) })?.title ?? "",
-                            author: books.first(where: { $0.insights.contains(where: { $0.id == insight.id }) })?.author ?? ""
-                        )
-                    } label: {
+                    if let book = book(for: insight) {
                         InsightNoteCardView(
                             insight: insight,
-                            title: books.first(where: { $0.insights.contains(where: { $0.id == insight.id }) })?.title ?? "",
-                            author: books.first(where: { $0.insights.contains(where: { $0.id == insight.id }) })?.author ?? ""
+                            title: book.title,
+                            author: book.author,
+                            shareText: shareText(for: insight, in: book)
                         )
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            selectedInsight = insight
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 12)
@@ -73,5 +72,29 @@ struct TaggedInsightsView: View {
         .navigationTitle(initialTag)
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Search notes")
+        .navigationDestination(item: $selectedInsight) { insight in
+            EditInsightNoteView(
+                insight: insight,
+                bookTitle: book(for: insight)?.title ?? "",
+                author: book(for: insight)?.author ?? ""
+            )
+        }
+    }
+
+    private func book(for insight: InsightDraft) -> BookRecord? {
+        books.first(where: { $0.insights.contains(where: { $0.id == insight.id }) })
+    }
+
+    private func shareText(for insight: InsightDraft, in book: BookRecord) -> String {
+        [
+            "\(book.title) - \(book.author)",
+            insight.tags.joined(separator: " "),
+            insight.page.isEmpty ? "" : "Hal \(insight.page)",
+            insight.keyInsight,
+            insight.whyItMatters.isEmpty ? "" : "Why it matters: \(insight.whyItMatters)",
+            insight.createdAt.formatted(date: .long, time: .omitted)
+        ]
+        .filter { !$0.isEmpty }
+        .joined(separator: "\n")
     }
 }

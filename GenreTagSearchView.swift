@@ -68,7 +68,8 @@ struct GenreTagSearchView: View {
                             InsightNoteCardView(
                                 insight: entry.insight,
                                 title: entry.book.title,
-                                author: entry.book.author
+                                author: entry.book.author,
+                                shareText: shareText(for: entry)
                             )
                         }
                     }
@@ -81,6 +82,19 @@ struct GenreTagSearchView: View {
         .background(Color(red: 0.95, green: 0.95, blue: 0.96).ignoresSafeArea())
         .navigationTitle("Tag Genre: \(genre.rawValue)")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func shareText(for entry: (book: BookRecord, insight: InsightDraft)) -> String {
+        [
+            "\(entry.book.title) - \(entry.book.author)",
+            entry.insight.tags.joined(separator: " "),
+            entry.insight.page.isEmpty ? "" : "Hal \(entry.insight.page)",
+            entry.insight.keyInsight,
+            entry.insight.whyItMatters.isEmpty ? "" : "Why it matters: \(entry.insight.whyItMatters)",
+            entry.insight.createdAt.formatted(date: .long, time: .omitted)
+        ]
+        .filter { !$0.isEmpty }
+        .joined(separator: "\n")
     }
 }
 

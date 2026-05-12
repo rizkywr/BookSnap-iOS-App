@@ -10,15 +10,21 @@ import AVFoundation
 import SwiftData
 
 struct InsightSavedView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
     @Query private var books: [BookRecord]
     let draft: InsightDraft
+    let onReturnHome: (() -> Void)?
 
     @State private var animateSuccess = false
     @State private var showAssignSheet = false
     @State private var showLibrary = false
+    @State private var showBackAlert = false
+
+    init(draft: InsightDraft, onReturnHome: (() -> Void)? = nil) {
+        self.draft = draft
+        self.onReturnHome = onReturnHome
+    }
 
     var body: some View {
         ZStack {
@@ -77,7 +83,7 @@ struct InsightSavedView: View {
                     .opacity(books.isEmpty ? 0.45 : 1)
 
                     NavigationLink {
-                        CreateBookCoverView(draft: draft)
+                        CreateBookCoverView(draft: draft, onReturnHome: onReturnHome)
                     } label: {
                         Text("New Book")
                             .font(.system(size: 16, weight: .bold))
@@ -104,12 +110,17 @@ struct InsightSavedView: View {
                 .presentationDetents([.height(480)])
         }
         .navigationDestination(isPresented: $showLibrary) {
-            InsightLibraryView()
+            InsightLibraryView(onBack: onReturnHome)
+        }
+        .alert("Choose a Book First", isPresented: $showBackAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("To continue, choose \"Assign to Existing Book\" or create a \"New Book\" for this insight.")
         }
     }
 
     private var backButton: some View {
-        Button(action: { dismiss() }) {
+        Button(action: { showBackAlert = true }) {
             HStack(spacing: 4) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 14, weight: .medium))
@@ -137,6 +148,7 @@ struct CreateBookCoverView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     let draft: InsightDraft
+    let onReturnHome: (() -> Void)?
 
     @State private var bookTitle = ""
     @State private var author = ""
@@ -146,6 +158,11 @@ struct CreateBookCoverView: View {
     @State private var image: UIImage?
     @State private var showPhotoLibraryPicker = false
     @State private var showLibrary = false
+
+    init(draft: InsightDraft, onReturnHome: (() -> Void)? = nil) {
+        self.draft = draft
+        self.onReturnHome = onReturnHome
+    }
 
     var body: some View {
         ZStack {
@@ -261,7 +278,7 @@ struct CreateBookCoverView: View {
             NativePhotoLibraryPicker(image: $image)
         }
         .navigationDestination(isPresented: $showLibrary) {
-            InsightLibraryView()
+            InsightLibraryView(onBack: onReturnHome)
         }
     }
 

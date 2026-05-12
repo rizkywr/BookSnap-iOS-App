@@ -151,7 +151,7 @@ struct WriteInsightForBookView: View {
 
                     if text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text(subtitle)
-                            .font(.system(size: 16,))
+                            .font(.system(size: 16))
                             .foregroundStyle(Color.black.opacity(0.25))
                             .allowsHitTesting(false)
                             .padding(.top, 8)

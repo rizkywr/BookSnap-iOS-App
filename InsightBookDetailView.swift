@@ -15,6 +15,7 @@ struct InsightBookDetailView: View {
     @State private var sortOrder: InsightSortOrder = .newestFirst
     @State private var searchText = ""
     @State private var showWriteNote = false
+    @State private var selectedInsight: InsightDraft?
 
     private var displayedInsights: [InsightDraft] {
         let sortedInsights: [InsightDraft]
@@ -23,13 +24,13 @@ struct InsightBookDetailView: View {
             sortedInsights = book.insights.sorted { $0.createdAt > $1.createdAt }
         case .oldestFirst:
             sortedInsights = book.insights.sorted { $0.createdAt < $1.createdAt }
-        case .hashtagFirst:
+        case .pageAscending:
             sortedInsights = book.insights.sorted { lhs, rhs in
-                if lhs.tags.count == rhs.tags.count {
-                    return lhs.createdAt > rhs.createdAt
-                }
-
-                return lhs.tags.count > rhs.tags.count
+                comparePages(lhs.page, rhs.page, ascending: true)
+            }
+        case .pageDescending:
+            sortedInsights = book.insights.sorted { lhs, rhs in
+                comparePages(lhs.page, rhs.page, ascending: false)
             }
         }
 
@@ -52,39 +53,19 @@ struct InsightBookDetailView: View {
         }
     }
 
-    private var shareText: String {
-        let body = displayedInsights.map { insight in
-            [
-                insight.tags.joined(separator: " "),
-                insight.page.isEmpty ? "" : "Hal \(insight.page)",
-                insight.keyInsight,
-                insight.whyItMatters.isEmpty ? "" : "Why it matters: \(insight.whyItMatters)",
-                insight.createdAt.formatted(date: .long, time: .omitted)
-            ]
-            .filter { !$0.isEmpty }
-            .joined(separator: "\n")
-        }
-        .joined(separator: "\n\n")
-
-        return "\(book.title) - \(book.author)\n\n\(body)"
-    }
-
     var body: some View {
         List {
             ForEach(displayedInsights) { insight in
                 InsightNoteCardView(
                     insight: insight,
                     title: book.title,
-                    author: book.author
+                    author: book.author,
+                    shareText: shareText(for: insight)
                 )
-                .background(
-                    NavigationLink("", destination: EditInsightNoteView(
-                        insight: insight,
-                        bookTitle: book.title,
-                        author: book.author
-                    ))
-                    .opacity(0)
-                )
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    selectedInsight = insight
+                }
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -157,27 +138,69 @@ struct InsightBookDetailView: View {
                     Image(systemName: "line.3.horizontal.decrease.circle")
                 }
 
-                ShareLink(item: shareText) {
-                    Image(systemName: "square.and.arrow.up")
-                }
             }
         }
         .sheet(isPresented: $showWriteNote) {
             WriteInsightForBookView(book: book)
         }
+        .navigationDestination(item: $selectedInsight) { insight in
+            EditInsightNoteView(
+                insight: insight,
+                bookTitle: book.title,
+                author: book.author
+            )
+        }
     }
 
-    private func deleteInsight(_ insightID: UUID) {
-        if let insight = book.insights.first(where: { $0.id == insightID }) {
-            modelContext.delete(insight)
+    private func shareText(for insight: InsightDraft) -> String {
+        [
+            "\(book.title) - \(book.author)",
+            insight.tags.joined(separator: " "),
+            insight.page.isEmpty ? "" : "Hal \(insight.page)",
+            insight.keyInsight,
+            insight.whyItMatters.isEmpty ? "" : "Why it matters: \(insight.whyItMatters)",
+            insight.createdAt.formatted(date: .long, time: .omitted)
+        ]
+        .filter { !$0.isEmpty }
+        .joined(separator: "\n")
+    }
+
+    private func comparePages(_ lhs: String, _ rhs: String, ascending: Bool) -> Bool {
+        let leftPage = pageSortValue(for: lhs, ascending: ascending)
+        let rightPage = pageSortValue(for: rhs, ascending: ascending)
+
+        if leftPage == rightPage {
+            return ascending
+                ? lhs.localizedStandardCompare(rhs) == .orderedAscending
+                : lhs.localizedStandardCompare(rhs) == .orderedDescending
         }
+
+        return ascending ? leftPage < rightPage : leftPage > rightPage
+    }
+
+    private func pageSortValue(for page: String, ascending: Bool) -> Int {
+        guard let firstNumber = firstPageNumber(in: page) else {
+            return ascending ? Int.max : Int.min
+        }
+
+        return firstNumber
+    }
+
+    private func firstPageNumber(in page: String) -> Int? {
+        let components = page.split(whereSeparator: { !$0.isNumber })
+        guard let firstDigits = components.first else {
+            return nil
+        }
+
+        return Int(firstDigits)
     }
 }
 
 private enum InsightSortOrder: CaseIterable {
     case newestFirst
     case oldestFirst
-    case hashtagFirst
+    case pageAscending
+    case pageDescending
 
     var title: String {
         switch self {
@@ -185,8 +208,10 @@ private enum InsightSortOrder: CaseIterable {
             return "Newest First"
         case .oldestFirst:
             return "Oldest First"
-        case .hashtagFirst:
-            return "Hashtag Priority"
+        case .pageAscending:
+            return "Page: Smallest First"
+        case .pageDescending:
+            return "Page: Largest First"
         }
     }
 }
@@ -195,14 +220,17 @@ struct InsightNoteCardView: View {
     let insight: InsightDraft
     let title: String
     let author: String
+    let shareText: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(headerLine)
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(Color.black.opacity(0.68))
+                    if !headerLine.isEmpty {
+                        Text(headerLine)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(Color.black.opacity(0.68))
+                    }
 
                     Text(insight.keyInsight)
                         .font(.system(size: 17, weight: .regular))
@@ -220,6 +248,16 @@ struct InsightNoteCardView: View {
                 }
                 
                 Spacer(minLength: 16)
+
+                ShareLink(item: shareText) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.black.opacity(0.5))
+                        .frame(width: 34, height: 34)
+                        .background(Color.black.opacity(0.05))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -227,9 +265,25 @@ struct InsightNoteCardView: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Color.black.opacity(0.72))
 
-                Text(insight.createdAt.formatted(date: .long, time: .omitted))
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Color.black.opacity(0.4))
+                HStack(spacing: 12) {
+                    if !insight.page.isEmpty {
+                        Text("Hal \(insight.page)")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Color.black.opacity(0.62))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(Color.black.opacity(0.06))
+                            )
+                    }
+
+                    Text(insight.createdAt.formatted(date: .long, time: .omitted))
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Color.black.opacity(0.4))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.9)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -250,15 +304,6 @@ struct InsightNoteCardView: View {
     }
 
     private var headerLine: String {
-        let hashtagText = insight.tags.joined(separator: " ")
-        if insight.page.isEmpty {
-            return hashtagText
-        }
-
-        if hashtagText.isEmpty {
-            return "Hal \(insight.page)"
-        }
-
-        return "\(hashtagText) - Hal \(insight.page)"
+        insight.tags.joined(separator: " ")
     }
 }
